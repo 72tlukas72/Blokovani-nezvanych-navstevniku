@@ -1,0 +1,254 @@
+<!DOCTYPE HTML>
+<!--
+	Tessellate by HTML5 UP
+	html5up.net | @n33co
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+ <head>
+  <title>Blokování nezvaných návštěvníků</title>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	<!--[if lte IE 8]><script src="css/ie/html5shiv.js"></script><![endif]-->
+	<script src="js/jquery.min.js"></script>
+	<script src="js/skel.min.js"></script>
+	<script src="js/init.js"></script>
+	<noscript>
+	 <link rel="stylesheet" href="css/skel.css" />
+	 <link rel="stylesheet" href="css/style.css" />
+	 <link rel="stylesheet" href="css/style-wide.css" />
+	</noscript>
+	<!--[if lte IE 8]><link rel="stylesheet" href="css/ie/v8.css" /><![endif]-->
+	<!--[if lte IE 9]><link rel="stylesheet" href="css/ie/v9.css" /><![endif]-->
+ </head>
+ <body>
+
+	<section id="header" class="dark">
+	 <header>
+	  <h1>Blokování nezvaných návštěvníků</h1>
+		<p><b>Lukáš Tesař</b></p><br>
+    <p><a href="http://vps.tlukas.eu">vps.tlukas.eu</a> nebo <a href="http://[2001:718:1001:2c6::11b]">2001:718:1001:2c6::11b</a></p>
+	 </header>
+	</section>
+
+	<section id="software" class="main">
+	 <header>
+	  <div class="container">
+		 <h2>software <b>fail2ban</b></h2>
+		 <p>Nejedná se o klasický firewall, který by aktivně filtroval síťový provoz. Fail2ban je služba, která prohledává autentizační logy a podle nastavených pravidel
+     blokuje přes IPtables přístup z IP adres. Neomezuje se pouze na SSH, podporuje i další služby, které vytváří logy <i>(Apache, Postfix, ...)</i>.
+     Alternativou může být software <a href="http://denyhosts.sourceforge.net/" target="_blank">DenyHosts</a>, ten se však zaměřuje pouze na SSH.</p>
+     <p>Fail2ban dokáže zabránit DoS brute-force útoku nebo náhodným pokusům o přihlášení, nedokáže bránit DDoS brute-force útoku. Má absenci podpory protokolu IPv6,
+     takže tyto adresy nebere v potaz a nedokáže je blokovat - o tom pak <a href="#ipv6">níže</a></p>
+    </div>
+	 </header>
+	</section>
+
+	<section id="instalace" class="main">
+	 <div class="content style1 dark">
+    <header>
+		 <div class="container">
+      <h3>Instalace & konfigurace</h3>
+     </div>
+		</header>
+    <div class="container">
+     <p>Samotná instalace je na většině Linuxových distribucí jednoduchá, protože software fail2ban se nachází v oficiálních repozitářích. V našem případě pro instalaci
+     použijeme známý příkaz <b>#&nbsp;apt-get install fail2ban</b>. Fail2ban je napsán v Pythonu, proto si při instalaci stáhne a nainstaluje požadované závislosti.
+     Po nainstalování se automaticky spustí, většinou může vyhovovat i výchozí konfigurace, ovšem doporučuji ji trochu upravit.</p>
+     <p>Konfigurace se provádí ve dvou souborech, a to v souboru <b>fail2ban.conf</b> a <b>jail.conf</b>. Oba soubory se nacházejí v adresáři <b>/etc/fail2ban</b>. První 
+     konfigurační soubor není až tak zajímavý - v něm se nastavují vlastnosti služby, v druhém se nastavuje již samotné banování.</p>
+     <p>Při otevření konfiguračního souboru <b>jail.conf</b> je v první části sekce <b>[Default]</b>. Zde se nastavují výchozí hodnoty, které pak používají ostatní služby.
+     Najdeme tam možnosti nastavení jako <b>ignoreip, bantime, findtime, maxretry</b>.</p>
+     <p class="console w50">
+     [DEFAULT]<br>
+     # "ignoreip" can be an IP address, a CIDR mask or a DNS host<br>
+     ignoreip = 127.0.0.1/8<br>
+     bantime = 600<br>
+     findtime = 600<br>
+     maxretry = 3
+     </p>
+     <p>Dále v konfiguračním souboru jsou definovány akce a pod nimi již konečně <b>jail pravidla</b> pro jednotlivé služby. Nastavení pro SSH bude vypadat zhruba následovně:</p>
+     <p class="console w50">
+     [ssh]<br>
+     enabled = true<br>
+     port = ssh<br>
+     filter = sshd<br>
+     logpath = /var/log/auth.log<br>
+     bantime = -1<br>
+     maxretry = 2
+     </p>
+     <p>Pro každou službu tedy můžeme nadefinovat parametry jako bantime, findtime a maxretry zvlášť. Pokud je nenadefinujeme, použijí  se ty ze sekce [Default]. Po
+     provedených změnách v konfiguračních souborech je nutné službu fail2ban restartovat, to se provede příkazem <b>#&nbsp;service fail2ban restart</b>.</p>
+    </div>
+    <header>
+		 <div class="container">
+      <h3>Sledování provozu</h3>
+     </div>
+		</header>
+    <div class="container">
+     <p>Pokud si nejste jisti, zda služba fail2ban běží, je možno funkčnost zobrazit pomocí příkazu <b>#&nbsp;service fail2ban status</b>. Fail2ban samozřejmě svůj provoz
+     loguje, ve výchozím nastavení do fail2ban.log <i>(tohle se dá upravit v konfiguračním souboru fail2ban.conf)</i>. Takový log může vypadat následovně:</p>
+     <p class="console w75">
+     2015-02-19 18:55:14,857 fail2ban.actions        [15556]: INFO    Set banTime = 600<br>
+     2015-02-19 18:55:14,859 fail2ban.filter         [15556]: INFO    Set findtime = 600<br>
+     2015-02-19 18:55:14,895 fail2ban.jail           [15556]: INFO    Jail 'ssh' started<br>
+     2015-02-20 04:40:07,972 fail2ban.filter         [15556]: INFO    [ssh] Found 61.152.91.20<br>
+     2015-02-20 04:42:25,793 fail2ban.filter         [15556]: INFO    [ssh] Found 61.152.91.20<br>
+     2015-02-20 04:45:03,654 fail2ban.filter         [15556]: INFO    [ssh] Found 61.152.91.20<br>
+     2015-02-20 04:45:04,537 fail2ban.actions        [15556]: NOTICE  [ssh] Ban 61.152.91.20<br>
+     2015-02-20 06:55:15,935 fail2ban.actions        [15556]: NOTICE  [ssh] Unban 82.194.76.6
+     </p>
+     <p>
+     Služba fail2ban má i vlastní statistiky. Ty si můžete zobrazit příkazem <b>#&nbsp;fail2ban-client status</b> anebo si zobrazit statistiku jail pravidla pomocí příkazu
+     <b>#&nbsp;fail2ban-client status ssh</b>.
+     </p>
+     <p class="console w75">
+     lukas@mujstroj ~ $ sudo fail2ban-client status<br>
+     Status<br>
+     |- Number of jail: 2<br>
+     `- Jail list:           ssh, ssh-ddos<br><br>
+     lukas@mujstroj ~ $ sudo fail2ban-client status ssh<br>
+     Status for the jail: ssh<br>
+     |- filter<br>
+     |  |- File list: /var/log/auth.log<br>
+     |  |- Currently failed: 0<br>
+     |  `- Total failed:     1120<br>
+     `- action<br>
+     |- Currently banned: 29<br>
+     |  `- IP list:       94.102.53.182 221.208.170.164 77.88.123.53 162.213.25.67 123.30.190.56 211.100.70.54 ...<br>
+     `- Total banned:     144
+     </p>
+     <p>
+     Jak jsem zmiňoval výše, fail2ban používá k banování IPtables. Pomocí příkazu <b>#&nbsp;iptables -L</b> si můžeme vypsat seznam pravidel, z kterých opět vyčteme
+     seznam zablokovaných IP adres.
+     </p>
+     <div class="console w50">
+      Chain fail2ban-ssh (1 references)
+      <table>
+       <thead>
+        <tr>
+         <td>target</td>
+         <td>prot</td>
+         <td>opt</td>
+         <td>source</td>
+         <td>destination</td>
+        </tr>
+       </thead>
+       <tbody>
+        <tr>
+         <td>DROP</td>
+         <td>all</td>
+         <td>--</td>
+         <td>221.208.170.164</td>
+         <td>anywhere</td>
+        </tr>
+        <tr>
+         <td>DROP</td>
+         <td>all</td>
+         <td>--</td>
+         <td>94.102.53.182</td>
+         <td>anywhere</td>
+        </tr>
+        <tr>
+         <td>DROP</td>
+         <td>all</td>
+         <td>--</td>
+         <td>77.88.123.53</td>
+         <td>anywhere</td>
+        </tr>
+        <tr>
+         <td>DROP</td>
+         <td>all</td>
+         <td>--</td>
+         <td>162.213.25.67</td>
+         <td>anywhere</td>
+        </tr>
+        <tr>
+         <td>DROP</td>
+         <td>all</td>
+         <td>--</td>
+         <td>123.30.190.56</td>
+         <td>anywhere</td>
+        </tr>
+        <tr>
+         <td>DROP</td>
+         <td>all</td>
+         <td>--</td>
+         <td>211.100.70.54</td>
+         <td>anywhere</td>
+        </tr>
+       </tbody>
+      </table>
+     </div>
+    </div>
+   </div>
+	</section>
+
+	<section id="ipv6" class="main">
+	 <header>
+		<div class="container">
+		 <h2>Vadí absence podpory IPv6?</h2>
+		 <h3>Ani ne...</h3>
+     <p>Vycházím z dat z veřejně dostupného <i>(pod IPv4 i IPv6)</i> serveru, který neměl spuštěný fail2ban. Data jsou sesbírána za týden od 1. do 8. února 2015.
+     <a href="./auth.log">Autentizační log</a> je dostupný online. Grafy rozšířenosti IPv6 ve světě a stránek podporujících IPv6 jsou pak z VUT Brno.
+     </p>
+     <br>
+     <table class="default">
+			<thead>
+			 <tr>
+        <th>Protokol</th>
+			  <th>Počet pokusů</th>
+			 </tr>
+			</thead>
+		  <tbody>
+			 <tr>
+			  <td>IPv4</td>
+				<td>~ 36 000</td>
+			 </tr>
+			 <tr>
+ 				<td>IPv6</td>
+				<td>0</td>
+			 </tr>
+      </tbody>
+		 </table>
+     <br>
+     <h3><b>Světová rozšířenost IPv6</b></h3>
+     <img src="./images/ipv6sluzby.png" alt="Světová rozšířenost IPv6">
+     <br>
+     <h3><b>Stránky podporující IPv6</b></h3>
+     <img src="./images/ipv6stranky.png" alt="Stránky podporující IPv6">
+    </div>
+	 </header>
+  </section>
+
+	<section id="zdroje" class="main">
+   <div class="content style1 dark">
+	  <header>
+		 <div class="container">
+		  <h3>Děkuji za pozornost</h3>
+		 	<br>
+      <h4>a dále by vás mohlo zajímat:</h4>
+      <ul>
+       <li><a href="http://www.fail2ban.org/wiki/index.php/Main_Page" target="_blank">Domovské stránky fail2ban</a></li>
+       <li><a href="http://denyhosts.sourceforge.net/" target="_blank">Domovské stránky DenyHosts</a></li>
+       <li><a href="http://www.root.cz/clanky/fail2ban-konec-hadani-hesel-na-serveru/" target="_blank">Fail2ban: konec hádání hesel na serveru</a></li>
+       <li><a href="http://www.linuxexpres.cz/praxe/sprava-linuxoveho-serveru-prakticke-rady-pro-zabezpeceni" target="_blank">Praktické rady pro zabezpečení (nejen) SSH III</a></li>
+       <li><a href="http://en.wikipedia.org/wiki/Fail2ban" target="_blank">fail2ban na WikiPedii</a></li>
+       <li><a href="http://ipv6.vutbr.cz/live-statistics/" target="_blank">Světová rozšířenost IPv6</a></li>
+       <li><a href="http://ipv6.vutbr.cz/live-statistics/web/" target="_blank">Stránky podporující IPv6</a></li>
+      </ul>
+		 </div>
+		</header>
+   </div>
+	</section>
+			
+  <section id="footer">
+   <h6>Blokování nezvaných návštěvníků</h6>
+   <div class="copyright">
+	  <ul class="menu">
+	   <li>&copy; All rights reserved.</li><li>Design: <a href="http://html5up.net">HTML5 UP</a></li>
+	  </ul>
+	 </div>
+  </section>
+
+ </body>
+</html>
